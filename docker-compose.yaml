@@ -1,0 +1,39 @@
+version: '3.9'
+
+services:
+  db:
+    image: mariadb
+    restart: unless-stopped
+    env_file:
+      - run.env
+    volumes:
+      - ${ROOT_DIR}/db:/var/lib/mysql
+  adminer:
+    image: adminer
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    depends_on:
+      - db
+  init-db:
+    build: .
+    restart: on-failure
+    environment:
+      - ELT_CONFIG=/data/config.yaml
+    volumes:
+      - ${ROOT_DIR}/data:/data
+    command: '/app/init-db.sh'
+    depends_on:
+      - db
+  backend:
+    build: .
+    environment:
+      - ELT_CONFIG=/data/config.yaml
+    volumes:
+      - ${ROOT_DIR}/data:/data
+      - ${ROOT_DIR}/downloads:/downloads
+    ports:
+      - "8000:80"
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
