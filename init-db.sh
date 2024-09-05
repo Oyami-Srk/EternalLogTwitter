@@ -1,4 +1,5 @@
 #! /usr/bin/env bash
-sleep 10
-alembic upgrade head
-exec "$@"
+secs=${wait_seconds:-10}
+echo "Wait $secs seconds for DB startup..."
+sleep $secs
+exec alembic upgrade head

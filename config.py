@@ -29,8 +29,10 @@ def __load_from(file: str):
     if __loaded:
         return
 
+    print(f"Trying to load config file: {file}.")
     import os
     if not os.path.isfile(file):
+        print("Unable to do so, file is not file.")
         return
 
     import yaml
@@ -58,4 +60,4 @@ def __load_from(file: str):
     __loaded = True
 
 import os
-__load_from(os.environ.get("ELF_CONFIG", "config.yaml"))
+__load_from(os.environ.get("ELT_CONFIG", "config.yaml"))

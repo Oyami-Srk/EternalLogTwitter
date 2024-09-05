@@ -3,6 +3,7 @@ version: '3.9'
 services:
   db:
     image: mariadb
+    # entrypoint: mariadbd-safe --skip-grant-tables
     restart: unless-stopped
     env_file:
       - run.env
@@ -12,14 +13,17 @@ services:
     image: adminer
     restart: unless-stopped
     ports:
-      - "8081:8080"
+      - "8001:8080"
     depends_on:
       - db
   init-db:
     build: .
     restart: on-failure
+    env_file:
+      - run.env
     environment:
-      - ELT_CONFIG=/data/config.yaml
+      ELT_CONFIG: /data/config.yaml
+      wait_seconds: 10
     volumes:
       - ${ROOT_DIR}/data:/data
     command: '/app/init-db.sh'
@@ -27,8 +31,11 @@ services:
       - db
   backend:
     build: .
+    env_file:
+      - run.env
     environment:
-      - ELT_CONFIG=/data/config.yaml
+      ELT_CONFIG: /data/config.yaml
+      HTTPS_PROXY: 'http://172.17.0.1:7890'
     volumes:
       - ${ROOT_DIR}/data:/data
       - ${ROOT_DIR}/downloads:/downloads
