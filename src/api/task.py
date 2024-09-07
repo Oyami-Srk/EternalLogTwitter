@@ -28,7 +28,7 @@ async def create_new_task(task: NewTask, db: Session = Depends(get_db)):
         CompletedTask.url == url).first()  # type: ignore
 
     if existing is not None:  # type: ignore
-        raise HTTPException(status_code=400, detail={
+        return {
             "success": False,
             "message": "Task already exists",
             "task": {
@@ -36,7 +36,7 @@ async def create_new_task(task: NewTask, db: Session = Depends(get_db)):
                 "url": url,
                 "type": "completed" if isinstance(existing, CompletedTask) else "pending"
             }
-        })
+        }
 
     db.add(Task(url=url, original_url=str(task.url)))
     db.commit()
