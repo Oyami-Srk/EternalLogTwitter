@@ -4,7 +4,7 @@ from . import URLTransformer
 
 
 class TwitterURLTransformer(URLTransformer):
-    PATTERN = re.compile(r'https?://(?:www\.)?twitter\.com/([^/]+)/status/(\d+)')
+    PATTERN = re.compile(r'https?://(?:www\.)?(?:twitter|x)\.com/([^/]+)/status/(\d+)')
     TEMPLATE = 'https://x.com/{0}/status/{1}'
 
     @property

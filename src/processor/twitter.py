@@ -1,11 +1,13 @@
 import logging
 import time
+import os
 
 import gallery_dl
 
 from . import TaskProcessor
 from ..db import SessionLocal
 from ..models import Task, CompletedTask
+from ..utils.url_transformer.twitter import TwitterURLTransformer
 from config import GALLERY_DL
 
 
@@ -46,6 +48,7 @@ class TwitterProcessor(TaskProcessor):
         gallery_dl.config.load()
         for key, value in GALLERY_DL.items():
             gallery_dl.config.set((), key, value)
+        self.base_dir = gallery_dl.extractor.find("http://x.com/i/status/123").config("base-directory")
 
     @staticmethod
     def apply_to() -> list[str]:
@@ -60,3 +63,15 @@ class TwitterProcessor(TaskProcessor):
             self.logger.error("Error processing task: %s", e)
             raise Exception("Error processing task")
         self.logger.debug("Task processed successfully")
+
+    def check(self, task: Task | CompletedTask) -> bool:
+        match = TwitterURLTransformer.PATTERN.match(task.url)
+        if match:
+            username = match.group(1)
+            tweet_id = match.group(2)
+            possible_ext = ["jpg", "png", "mp4"]
+            check_dir = f"{self.base_dir}/twitter/{username}/{tweet_id}_1."
+            for ext in possible_ext:
+                if os.path.exists(check_dir + ext):
+                    return True
+        return False

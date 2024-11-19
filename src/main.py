@@ -4,7 +4,7 @@ from fastapi import FastAPI, Depends
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from .api import status, task
+from .api import status, task, check
 
 from .dependencies import validate_token
 from .worker import spawn_worker, terminate_worker
@@ -30,6 +30,7 @@ app = FastAPI(
 
 app.include_router(status.router)
 app.include_router(task.router)
+app.include_router(check.router)
 
 
 @app.on_event("startup")

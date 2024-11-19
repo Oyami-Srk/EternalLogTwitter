@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, DateTime, JSON, Text
+from sqlalchemy import Column, Integer, String, DateTime, JSON, Text, Boolean
 from sqlalchemy.orm import DeclarativeBase, Session
 
 from config import TIMEZONE
@@ -36,6 +36,7 @@ class CompletedTask(Base):
     url = Column(Text, index=True)
     original_url = Column(Text)
     complete_date = Column(DateTime, default=get_local_time)
+    checked = Column(Boolean, default=False, nullable=False)
 
     @classmethod
     def count_since(cls, db: Session, t):

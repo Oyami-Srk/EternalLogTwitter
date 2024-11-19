@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 
 from ..db import SessionLocal
-from ..models import Task
+from ..models import Task, CompletedTask
 
 
 class TaskProcessor(ABC):
@@ -17,6 +17,10 @@ class TaskProcessor(ABC):
 
     @abstractmethod
     def process(self, task: Task):
+        pass
+
+    @abstractmethod
+    def check(self, url: Task | CompletedTask) -> bool:
         pass
 
     def __str__(self) -> str:
