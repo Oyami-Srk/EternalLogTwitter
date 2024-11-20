@@ -41,7 +41,7 @@ async def check_all(processors: dict[str, TaskProcessor], db: Session):
             db.commit()
         else:
             failures.append(t)
-        if total % 100 == 0 and datetime.datetime.now() - begin_time > datetime.timedelta(seconds=30):
+        if total % 100 == 0 and datetime.datetime.now() - begin_time > datetime.timedelta(seconds=120):
             partial = True
             break
     return {
