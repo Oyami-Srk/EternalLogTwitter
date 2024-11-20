@@ -49,7 +49,8 @@ async def check_all(processors: dict[str, TaskProcessor], db: Session):
         "total": total,
         "ok": ok,
         "elapsed": datetime.datetime.now() - begin_time,
-        "failures": [f.url for f in failures]
+        "failures": [f.url for f in failures],
+        "remaining": db.query(CompletedTask).where(CompletedTask.checked == False).count()  # type: ignore
     }
 
 
