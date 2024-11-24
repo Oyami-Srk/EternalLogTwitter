@@ -26,7 +26,7 @@ async def check_task(processors: dict[str, TaskProcessor], task: Task | Complete
     return False
 
 
-async def check_all(processors: dict[str, TaskProcessor], db: Session):
+async def check_all(processors: dict[str, TaskProcessor], db: Session, retry: bool):
     partial = False
     total = 0
     ok = 0
@@ -44,6 +44,12 @@ async def check_all(processors: dict[str, TaskProcessor], db: Session):
         if total % 100 == 0 and datetime.datetime.now() - begin_time > datetime.timedelta(seconds=120):
             partial = True
             break
+    if retry:
+        logger.info("Retrying failed tasks")
+        for t in failures:
+            db.add(Task(url=t.url, original_url=t.original_url))
+            db.delete(t)
+        db.commit()
     return {
         "status": "ok" if not partial else "partial",
         "total": total,
@@ -54,11 +60,18 @@ async def check_all(processors: dict[str, TaskProcessor], db: Session):
     }
 
 
-async def check_by_url(processors: dict[str, TaskProcessor], urls: AnyHttpUrl | list[AnyHttpUrl]):
+async def check_by_url(processors: dict[str, TaskProcessor],
+                       db: Session,
+                       retry: bool,
+                       urls: AnyHttpUrl | list[AnyHttpUrl]):
     raise HTTPException(400, "Not implemented")
 
 
-async def check_by_time_range(processors: dict[str, TaskProcessor], start: datetime.datetime, end: datetime.datetime):
+async def check_by_time_range(processors: dict[str, TaskProcessor],
+                              db: Session,
+                              retry: bool,
+                              start: datetime.datetime,
+                              end: datetime.datetime):
     raise HTTPException(400, "Not implemented")
 
 
@@ -66,6 +79,7 @@ async def check_by_time_range(processors: dict[str, TaskProcessor], start: datet
 async def check(all: Optional[bool] = None,
                 by_url: Optional[AnyHttpUrl | list[AnyHttpUrl]] = None,
                 by_time_range: Optional[tuple[datetime.datetime, datetime.datetime]] = None,
+                retry: bool = False,
                 db: Session = Depends(get_db)):
     processors = {}
     for processor in TaskProcessors.keys():
@@ -74,12 +88,12 @@ async def check(all: Optional[bool] = None,
 
     if all is not None:
         if all:
-            return await check_all(processors, db)
+            return await check_all(processors, db, retry)
         else:
             return {"status": "ok", "message": "No check performed"}
     elif by_url is not None:
-        return await check_by_url(processors, by_url)
+        return await check_by_url(processors, db, retry, by_url)
     elif by_time_range is not None:
-        return await check_by_time_range(processors, *by_time_range)
+        return await check_by_time_range(processors, db, retry, *by_time_range)
     else:
         raise HTTPException(400, "Exactly one of all, by_url, by_time_range must be provided")

@@ -23,6 +23,7 @@ class Task(Base):
     original_url = Column(Text)
     create_date = Column(DateTime, default=get_local_time)
     retry_after = Column(DateTime, default=None, nullable=True)
+    retry_counter = Column(Integer, default=0, nullable=False)
 
     @classmethod
     def count_since(cls, db: Session, t):
@@ -35,6 +36,7 @@ class CompletedTask(Base):
     id = Column(Integer, primary_key=True, index=True)
     url = Column(Text, index=True)
     original_url = Column(Text)
+    create_date = Column(DateTime, default=get_local_time)
     complete_date = Column(DateTime, default=get_local_time)
     checked = Column(Boolean, default=False, nullable=False)
 
@@ -42,6 +44,19 @@ class CompletedTask(Base):
     def count_since(cls, db: Session, t):
         return db.query(cls).filter(cls.complete_date >= t).count()
 
+
+class FailedTask(Base):
+    __tablename__ = "failed_tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    url = Column(Text, index=True)
+    original_url = Column(Text)
+    create_date = Column(DateTime, default=get_local_time)
+    reason = Column(Text)
+
+    @classmethod
+    def count_since(cls, db: Session, t):
+        return db.query(cls).filter(cls.complete_date >= t).count()
 
 class ProcessLock(Base):
     __tablename__ = "process_lock"

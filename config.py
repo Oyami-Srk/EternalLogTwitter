@@ -15,6 +15,9 @@ GALLERY_DL = {}
 # Retry Interval (in seconds)
 RETRY_INTERVAL = 10
 
+# Max retries
+MAX_RETRIES = 6
+
 # Force start worker
 FORCE_START_WORKER = False
 

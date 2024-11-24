@@ -9,11 +9,11 @@ from sqlalchemy import select, insert, delete
 from sqlalchemy.exc import IntegrityError
 from pydantic import AnyHttpUrl
 
-from .models import Task, CompletedTask, ProcessLock
+from .models import Task, CompletedTask, FailedTask, ProcessLock
 from .db import SessionLocal
 from .processor import TaskProcessors
 
-from config import RETRY_INTERVAL, FORCE_START_WORKER
+from config import MAX_RETRIES, RETRY_INTERVAL, FORCE_START_WORKER
 
 
 def check_or_insert_lock(db, name: str, pid: int) -> tuple[bool, int]:
@@ -75,12 +75,18 @@ def worker():
                 logger.debug(f"Using processor {processor}")
                 try:
                     processor.process(task)
+                    if not processor.check(task):
+                        raise Exception("Check failed")
                 except Exception as e:
                     logger.error(f"Error processing task: {e}, retrying after {RETRY_INTERVAL} seconds...")
                     # Move task to the end of the queue
                     db.delete(task)
                     task.retry_after = datetime.datetime.now() + datetime.timedelta(seconds=RETRY_INTERVAL)
-                    db.add(task)
+                    task.retry_counter += 1
+                    if task.retry_counter > MAX_RETRIES:
+                        db.add(FailedTask(url=task.url, original_url=task.original_url, reason=str(e)))
+                    else:
+                        db.add(task)
                     db.commit()
                     continue
                 db.delete(task)
