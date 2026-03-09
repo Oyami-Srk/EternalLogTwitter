@@ -23,6 +23,10 @@ class TaskProcessor(ABC):
     def check(self, url: Task | CompletedTask) -> bool:
         pass
 
+    @abstractmethod
+    def get_data(self, task: Task | CompletedTask) -> dict | None:
+        pass
+
     def __str__(self) -> str:
         return f"[Processor for {','.join(self.apply_to())}]"
 

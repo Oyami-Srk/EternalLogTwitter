@@ -1,6 +1,7 @@
 import logging
 import time
 import os
+import base64
 
 import gallery_dl
 
@@ -63,8 +64,8 @@ class TwitterProcessor(TaskProcessor):
             self.logger.error("Error processing task: %s", e)
             raise Exception("Error processing task")
         self.logger.debug("Task processed successfully")
-
-    def check(self, task: Task | CompletedTask) -> bool:
+    
+    def get_downloaded_file(self, task: Task | CompletedTask) -> str | None:
         match = TwitterURLTransformer.PATTERN.match(task.url)
         if match:
             username = match.group(1)
@@ -73,5 +74,21 @@ class TwitterProcessor(TaskProcessor):
             check_dir = f"{self.base_dir}/twitter/{username}/{tweet_id}_1."
             for ext in possible_ext:
                 if os.path.exists(check_dir + ext):
-                    return True
+                    return check_dir + ext
+        return None
+
+    def check(self, task: Task | CompletedTask) -> bool:
+        if self.get_downloaded_file(task):
+            return True
         return False
+    
+    def get_data(self, task: Task | CompletedTask) -> dict | None:
+        file_path = self.get_downloaded_file(task)
+        if not file_path:
+            return None
+        return {
+            "file_path": file_path,
+            "filename": os.path.basename(file_path),
+            "size": os.path.getsize(file_path),
+            "data": base64.b64encode(open(file_path, "rb").read()).decode("utf-8")
+        }
