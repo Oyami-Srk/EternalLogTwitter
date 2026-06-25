@@ -24,6 +24,8 @@ class Task(Base):
     create_date = Column(DateTime, default=get_local_time)
     retry_after = Column(DateTime, default=None, nullable=True)
     retry_counter = Column(Integer, default=0, nullable=False)
+    file_path = Column(Text, nullable=True)
+    task_metadata = Column(JSON, default={})
 
     @classmethod
     def count_since(cls, db: Session, t):
@@ -39,6 +41,7 @@ class CompletedTask(Base):
     create_date = Column(DateTime, default=get_local_time)
     complete_date = Column(DateTime, default=get_local_time)
     checked = Column(Boolean, default=False, nullable=False)
+    file_path = Column(Text, nullable=True)
 
     @classmethod
     def count_since(cls, db: Session, t):

@@ -60,28 +60,24 @@ class TwitterProcessor(TaskProcessor):
         try:
             job = GalleryDownloadJob(task.url, self.logger)
             job.run()
+            if job.pathfmt is not None:
+                task.file_path = job.pathfmt.path
+                self.db.commit()
         except Exception as e:
             self.logger.error("Error processing task: %s", e)
             raise Exception("Error processing task")
         self.logger.debug("Task processed successfully")
-    
+
     def get_downloaded_file(self, task: Task | CompletedTask) -> str | None:
-        match = TwitterURLTransformer.PATTERN.match(task.url)
-        if match:
-            username = match.group(1)
-            tweet_id = match.group(2)
-            possible_ext = ["jpg", "png", "mp4"]
-            check_dir = f"{self.base_dir}/twitter/{username}/{tweet_id}_1."
-            for ext in possible_ext:
-                if os.path.exists(check_dir + ext):
-                    return check_dir + ext
+        if os.path.exists(task.file_path):
+            return task.file_path
         return None
 
     def check(self, task: Task | CompletedTask) -> bool:
         if self.get_downloaded_file(task):
             return True
         return False
-    
+
     def get_data(self, task: Task | CompletedTask) -> dict | None:
         file_path = self.get_downloaded_file(task)
         if not file_path:

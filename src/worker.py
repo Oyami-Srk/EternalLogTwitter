@@ -90,7 +90,13 @@ def worker():
                     db.commit()
                     continue
                 db.delete(task)
-                db.add(CompletedTask(url=task.url, original_url=task.original_url))
+                db.add(
+                    CompletedTask(
+                        url=task.url,
+                        original_url=task.original_url,
+                        file_path=task.file_path,
+                    )
+                )
                 db.commit()
             time.sleep(1)
         time.sleep(1)
