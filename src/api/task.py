@@ -16,9 +16,10 @@ logger = logging.getLogger("api.task")
 
 class NewTask(BaseModel):
     url: AnyHttpUrl | list[AnyHttpUrl]
+    tag: str | None = None
 
 
-async def process_one_url(url: AnyHttpUrl, db: Session) -> tuple[str, Task | CompletedTask | None]:
+async def process_one_url(url: AnyHttpUrl, db: Session, tag: str | None = None) -> tuple[str, Task | CompletedTask | None]:
     original_url = url
     if url.host in URLTransformers:
         url = URLTransformers[url.host].transform(str(url))
@@ -31,9 +32,13 @@ async def process_one_url(url: AnyHttpUrl, db: Session) -> tuple[str, Task | Com
         CompletedTask.url == url).first()  # type: ignore
 
     if existing is not None:  # type: ignore
+        # Update the tag of an existing completed task when a new tag is provided
+        if isinstance(existing, CompletedTask) and tag is not None and existing.tag != tag:
+            existing.tag = tag
+            db.commit()
         return url, existing
 
-    db.add(Task(url=url, original_url=str(original_url)))
+    db.add(Task(url=url, original_url=str(original_url), tag=tag))
     db.commit()
 
     return url, None
@@ -45,7 +50,7 @@ async def create_new_task(task: NewTask, db: Session = Depends(get_db)):
         existed = []
         new = []
         for url in task.url:
-            url, existing = await process_one_url(url, db)
+            url, existing = await process_one_url(url, db, task.tag)
             if existing is not None:
                 existed.append({
                     "id": existing.id,
@@ -69,7 +74,7 @@ async def create_new_task(task: NewTask, db: Session = Depends(get_db)):
             }
         }
     else:
-        url, existing = await process_one_url(task.url, db)
+        url, existing = await process_one_url(task.url, db, task.tag)
         if existing is not None:
             return {
                 "status": "ok",

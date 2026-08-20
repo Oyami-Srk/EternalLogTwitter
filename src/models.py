@@ -21,6 +21,7 @@ class Task(Base):
     id = Column(Integer, primary_key=True, index=True)
     url = Column(Text, unique=True)
     original_url = Column(Text)
+    tag = Column(String(128), default=None, nullable=True)
     create_date = Column(DateTime, default=get_local_time)
     retry_after = Column(DateTime, default=None, nullable=True)
     retry_counter = Column(Integer, default=0, nullable=False)
@@ -38,6 +39,7 @@ class CompletedTask(Base):
     id = Column(Integer, primary_key=True, index=True)
     url = Column(Text, index=True)
     original_url = Column(Text)
+    tag = Column(String(128), default=None, nullable=True)
     create_date = Column(DateTime, default=get_local_time)
     complete_date = Column(DateTime, default=get_local_time)
     checked = Column(Boolean, default=False, nullable=False)
@@ -54,6 +56,7 @@ class FailedTask(Base):
     id = Column(Integer, primary_key=True, index=True)
     url = Column(Text, index=True)
     original_url = Column(Text)
+    tag = Column(String(128), default=None, nullable=True)
     create_date = Column(DateTime, default=get_local_time)
     reason = Column(Text)
 

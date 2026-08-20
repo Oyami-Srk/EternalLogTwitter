@@ -84,7 +84,7 @@ def worker():
                     task.retry_after = datetime.datetime.now() + datetime.timedelta(seconds=RETRY_INTERVAL)
                     task.retry_counter += 1
                     if task.retry_counter > MAX_RETRIES:
-                        db.add(FailedTask(url=task.url, original_url=task.original_url, reason=str(e)))
+                        db.add(FailedTask(url=task.url, original_url=task.original_url, tag=task.tag, reason=str(e)))
                     else:
                         db.add(task)
                     db.commit()
@@ -94,6 +94,7 @@ def worker():
                     CompletedTask(
                         url=task.url,
                         original_url=task.original_url,
+                        tag=task.tag,
                         file_path=task.file_path,
                     )
                 )
