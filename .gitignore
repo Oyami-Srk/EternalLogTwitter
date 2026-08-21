@@ -244,3 +244,4 @@ cython_debug/
 cookies.txt
 config.yaml
 *.env
+*.sql

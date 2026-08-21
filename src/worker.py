@@ -96,6 +96,7 @@ def worker():
                         original_url=task.original_url,
                         tag=task.tag,
                         file_path=task.file_path,
+                        task_metadata=task.task_metadata,
                     )
                 )
                 db.commit()

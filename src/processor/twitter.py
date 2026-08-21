@@ -15,6 +15,8 @@ from config import GALLERY_DL
 class LoggerOutput:
     def __init__(self, logger):
         self.logger = logger
+        self.paths: list[str] = []
+        self.skipped_paths: list[str] = []
 
     def start(self, path):
         """Print a message indicating the start of a download"""
@@ -23,10 +25,12 @@ class LoggerOutput:
     def skip(self, path):
         """Print a message indicating that a download has been skipped"""
         self.logger.info("Skip download: %s", path)
+        self.skipped_paths.append(path)
 
     def success(self, path):
         """Print a message indicating the completion of a download"""
         self.logger.info("Successfully downloaded: %s", path)
+        self.paths.append(path)
 
     def progress(self, bytes_total, bytes_downloaded, bytes_per_second):
         """Display download progress"""
@@ -60,31 +64,55 @@ class TwitterProcessor(TaskProcessor):
         try:
             job = GalleryDownloadJob(task.url, self.logger)
             job.run()
-            if job.pathfmt is not None:
-                task.file_path = job.pathfmt.path
-                self.db.commit()
+            files = []
+            for p in job.out.paths:
+                files.append({"path": p, "skipped": False})
+            for p in job.out.skipped_paths:
+                files.append({"path": p, "skipped": True})
+            if not files and job.pathfmt is not None and job.pathfmt.path:
+                files = [{"path": job.pathfmt.path, "skipped": False}]
+            task.file_path = files or None
+            self.db.commit()
         except Exception as e:
             self.logger.error("Error processing task: %s", e)
             raise Exception("Error processing task")
         self.logger.debug("Task processed successfully")
 
-    def get_downloaded_file(self, task: Task | CompletedTask) -> str | None:
-        if os.path.exists(task.file_path):
-            return task.file_path
-        return None
+    def get_all_files(self, task: Task | CompletedTask) -> list[tuple[str, bool]]:
+        """Return all recorded files as (path, skipped) pairs."""
+        if not task.file_path:
+            return []
+        paths = task.file_path if isinstance(task.file_path, list) else [task.file_path]
+        result = []
+        for item in paths:
+            if isinstance(item, dict):
+                result.append((item.get("path"), bool(item.get("skipped"))))
+            else:
+                # legacy plain-string entries
+                result.append((item, False))
+        return result
+
+    def get_downloaded_files(self, task: Task | CompletedTask) -> list[str]:
+        # A skipped file that still exists on disk has been downloaded before,
+        # so it counts as downloaded regardless of the skipped flag.
+        return [p for p, _ in self.get_all_files(task) if p and os.path.exists(p)]
 
     def check(self, task: Task | CompletedTask) -> bool:
-        if self.get_downloaded_file(task):
+        if self.get_downloaded_files(task):
             return True
         return False
 
     def get_data(self, task: Task | CompletedTask) -> dict | None:
-        file_path = self.get_downloaded_file(task)
-        if not file_path:
+        entries = self.get_all_files(task)
+        if not entries:
             return None
-        return {
-            "file_path": file_path,
-            "filename": os.path.basename(file_path),
-            "size": os.path.getsize(file_path),
-            "data": base64.b64encode(open(file_path, "rb").read()).decode("utf-8")
-        }
+        files = {}
+        for path, skipped in entries:
+            if not path:
+                continue
+            name = os.path.basename(path)
+            content = None
+            if os.path.exists(path):
+                content = base64.b64encode(open(path, "rb").read()).decode("utf-8")
+            files[name] = {"skipped": skipped, "content": content}
+        return {"files": files}
