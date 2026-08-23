@@ -1,0 +1,31 @@
+# Version control
+.git
+.gitignore
+
+# Python / virtualenv
+.venv
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE
+.vs
+.idea
+
+# Sensitive / local config (never ship into image or build context)
+run.env
+.env
+*.env
+config.yaml
+cookies.txt
+
+# Local data & caches
+downloads/
+gallery-dl/
+db/
+data/
+*.sql
+
+# OS files
+.DS_Store
+Thumbs.db
