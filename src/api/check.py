@@ -32,6 +32,7 @@ async def check_all(processors: dict[str, TaskProcessor], db: Session, retry: bo
     ok = 0
     failures = []
     begin_time = datetime.datetime.now()
+    logger.info(f"Starting full check of unchecked completed tasks (retry={retry})")
     for t in db.query(CompletedTask).where(CompletedTask.checked == False).all():  # type: ignore
         total += 1
         checked = await check_task(processors, t, db)
@@ -43,13 +44,15 @@ async def check_all(processors: dict[str, TaskProcessor], db: Session, retry: bo
             failures.append(t)
         if total % 100 == 0 and datetime.datetime.now() - begin_time > datetime.timedelta(seconds=120):
             partial = True
+            logger.info(f"Partial check stopped at {total} tasks, time budget exceeded")
             break
     if retry:
-        logger.info("Retrying failed tasks")
+        logger.info(f"Retrying {len(failures)} failed tasks")
         for t in failures:
             db.add(Task(url=t.url, original_url=t.original_url))
             db.delete(t)
         db.commit()
+    logger.info(f"Check finished: total={total}, ok={ok}, failed={len(failures)}, partial={partial}")
     return {
         "status": "ok" if not partial else "partial",
         "total": total,
@@ -81,6 +84,8 @@ async def check(all: Optional[bool] = None,
                 by_time_range: Optional[tuple[datetime.datetime, datetime.datetime]] = None,
                 retry: bool = False,
                 db: Session = Depends(get_db)):
+    logger.info(f"Check requested: all={all}, by_url={by_url}, "
+                f"by_time_range={by_time_range}, retry={retry}")
     processors = {}
     for processor in TaskProcessors.keys():
         cls = TaskProcessors[processor]
@@ -90,10 +95,13 @@ async def check(all: Optional[bool] = None,
         if all:
             return await check_all(processors, db, retry)
         else:
+            logger.info("Check skipped (all=False)")
             return {"status": "ok", "message": "No check performed"}
     elif by_url is not None:
+        logger.info("Check by_url requested but not implemented")
         return await check_by_url(processors, db, retry, by_url)
     elif by_time_range is not None:
+        logger.info("Check by_time_range requested but not implemented")
         return await check_by_time_range(processors, db, retry, *by_time_range)
     else:
         raise HTTPException(400, "Exactly one of all, by_url, by_time_range must be provided")

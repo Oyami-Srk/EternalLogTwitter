@@ -15,6 +15,7 @@ logger = logging.getLogger("api.status")
 
 @router.get("/status")
 async def get_status():
+    logger.info("Status requested")
     return {
         "status": "ok",
         "server_time": datetime.now(TIMEZONE).strftime("%Y-%m-%d %H:%M:%S"),
@@ -24,6 +25,7 @@ async def get_status():
 @router.get("/stat")
 async def get_count(by: str = "time", with_in: str | None = None, since: int | None = None,
                     db: Session = Depends(get_db)):
+    logger.info(f"Stat requested: by={by}, with_in={with_in}, since={since}")
     stats = []
 
     if by == "time":
@@ -35,10 +37,13 @@ async def get_count(by: str = "time", with_in: str | None = None, since: int | N
         elif since is not None:
             t = datetime.fromtimestamp(since, TIMEZONE)
         logger.info(f"Getting count of tasks since {t}")
+        task_count = Task.count_since(db, t)
+        completed_count = CompletedTask.count_since(db, t)
+        logger.info(f"Stat result: task={task_count}, completed_task={completed_count}")
         stats.append({
             "type": "time",
-            "task": Task.count_since(db, t),
-            "completed_task": CompletedTask.count_since(db, t)
+            "task": task_count,
+            "completed_task": completed_count
         })
 
     return {

@@ -77,6 +77,7 @@ async def process_one_url(url: AnyHttpUrl, db: Session, tag: str | None = None) 
         url = URLTransformers[url.host].transform(str(url))
     else:
         url = str(url)
+    logger.info(f"Processing url: {original_url} -> {url}")
 
     # FailedTask is not used for checking existing tasks, because we want to manually retry failed tasks
     existing = db.query(Task).where(Task.url == url).first()  # type: ignore
@@ -86,10 +87,14 @@ async def process_one_url(url: AnyHttpUrl, db: Session, tag: str | None = None) 
     if existing is not None:  # type: ignore
         # Update the tag of an existing completed task when a new tag is provided
         if isinstance(existing, CompletedTask) and tag is not None and existing.tag != tag:
+            logger.info(f"Updating tag of completed task {existing.id}: {existing.tag} -> {tag}")
             existing.tag = tag
             db.commit()
+        etype = "completed" if isinstance(existing, CompletedTask) else "pending"
+        logger.info(f"Task already exists for {url}: id={existing.id}, type={etype}")
         return url, existing
 
+    logger.info(f"Creating new task for {url}, tag={tag}")
     db.add(Task(url=url, original_url=str(original_url), tag=tag))
     db.commit()
 
@@ -111,6 +116,7 @@ async def create_new_task(task: NewTask, db: Session = Depends(get_db)):
                 })
             else:
                 new.append(url)
+        logger.info(f"Batch task created: {len(new)} new, {len(existed)} existed, tag={task.tag}")
         return {
             "status": "ok",
             "success": True,
@@ -128,6 +134,7 @@ async def create_new_task(task: NewTask, db: Session = Depends(get_db)):
     else:
         url, existing = await process_one_url(task.url, db, task.tag)
         if existing is not None:
+            logger.info(f"Single task create skipped, already exists: {url}, id={existing.id}")
             return {
                 "status": "ok",
                 "success": False,
@@ -151,6 +158,7 @@ async def create_new_task(task: NewTask, db: Session = Depends(get_db)):
 
 @router.get("/task/{task_id}")
 async def get_task(task_id: int, db: Session = Depends(get_db)):
+    logger.info(f"Querying task {task_id}")
     task = db.query(Task).where(Task.id == task_id).first()  # type: ignore
     task = task if task is not None else db.query(CompletedTask).where(
         CompletedTask.id == task_id).first()  # type: ignore
@@ -158,8 +166,10 @@ async def get_task(task_id: int, db: Session = Depends(get_db)):
         FailedTask.id == task_id).first()  # type: ignore
 
     if task is None:  # type: ignore
+        logger.info(f"Task {task_id} not found")
         raise HTTPException(404, f"Task {task_id} not found")
 
+    logger.info(f"Task {task_id} found: type={serialize_task(task)['type']}, url={task.url}")
     return {
         "status": "ok",
         "success": True,
@@ -173,6 +183,7 @@ async def query_task_by_url(url: AnyHttpUrl, db: Session = Depends(get_db)):
         url = URLTransformers[url.host].transform(str(url))
     else:
         url = str(url)
+    logger.info(f"Querying task by url: {original_url} -> {url}")
 
     # Search in order: pending -> completed -> failed
     existing = db.query(Task).where(Task.url == url).first()  # type: ignore
@@ -182,12 +193,14 @@ async def query_task_by_url(url: AnyHttpUrl, db: Session = Depends(get_db)):
         FailedTask.url == url).first()  # type: ignore
 
     if existing is None:  # type: ignore
+        logger.info(f"No task found for url {url}")
         return {
             "existed": False,
             "task": None,
             "success": True,
         }
 
+    logger.info(f"Task found for url {url}: id={existing.id}, type={serialize_task(existing)['type']}")
     return {
         "existed": True,
         "success": True,
@@ -200,6 +213,7 @@ async def query_task_by_time_range(start: str | None = None,
                                    end: str | None = None,
                                    tag: str | None = None,
                                    db: Session = Depends(get_db)):
+    logger.info(f"Querying tasks by time range: start={start}, end={end}, tag={tag}")
     start_t = parse_time_param(start, "start")
     end_t = parse_time_param(end, "end")
 
@@ -229,6 +243,9 @@ async def query_task_by_time_range(start: str | None = None,
     if tag is not None:
         fq = fq.where(FailedTask.tag == tag)
     failed = [serialize_task(t) for t in fq.all()]
+
+    logger.info(f"Time range query returned: {len(pending)} pending, "
+                f"{len(completed)} completed, {len(failed)} failed")
 
     return {
         "status": "ok",

@@ -73,6 +73,8 @@ class TwitterProcessor(TaskProcessor):
                 files = [{"path": job.pathfmt.path, "skipped": False}]
             task.file_path = files or None
             self.db.commit()
+            self.logger.info(f"Download finished for {task.url}: "
+                             f"{len(job.out.paths)} downloaded, {len(job.out.skipped_paths)} skipped")
         except Exception as e:
             self.logger.error("Error processing task: %s", e)
             raise Exception("Error processing task")

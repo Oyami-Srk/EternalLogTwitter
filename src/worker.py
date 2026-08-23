@@ -68,7 +68,7 @@ def worker():
         while (task := db.execute(
                 select(Task).where((Task.retry_after == None) | (Task.retry_after < datetime.datetime.now())).limit(1)
         ).scalars().first()) is not None and is_running():
-            logger.debug(f"Processing task: {task.url}")
+            logger.info(f"Processing task: {task.url}")
             url = AnyHttpUrl(task.url)
             if url.host in TaskProcessors:
                 processor = processors[url.host]
@@ -84,8 +84,10 @@ def worker():
                     task.retry_after = datetime.datetime.now() + datetime.timedelta(seconds=RETRY_INTERVAL)
                     task.retry_counter += 1
                     if task.retry_counter > MAX_RETRIES:
+                        logger.warning(f"Task permanently failed: {task.url}, retries={task.retry_counter}, reason: {e}")
                         db.add(FailedTask(url=task.url, original_url=task.original_url, tag=task.tag, reason=str(e)))
                     else:
+                        logger.info(f"Task requeued for retry {task.retry_counter}/{MAX_RETRIES}: {task.url}")
                         db.add(task)
                     db.commit()
                     continue
@@ -100,6 +102,7 @@ def worker():
                     )
                 )
                 db.commit()
+                logger.info(f"Task completed: {task.url}")
             time.sleep(1)
         time.sleep(1)
 
