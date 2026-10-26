@@ -77,7 +77,7 @@ async def process_one_url(url: AnyHttpUrl, db: Session, tag: str | None = None) 
         url = URLTransformers[url.host].transform(str(url))
     else:
         url = str(url)
-    logger.info(f"Processing url: {original_url} -> {url}")
+    logger.info(f"Processing url: {original_url} -> {url}, tag={tag}")
 
     # FailedTask is not used for checking existing tasks, because we want to manually retry failed tasks
     existing = db.query(Task).where(Task.url == url).first()  # type: ignore
@@ -85,12 +85,12 @@ async def process_one_url(url: AnyHttpUrl, db: Session, tag: str | None = None) 
         CompletedTask.url == url).first()  # type: ignore
 
     if existing is not None:  # type: ignore
-        # Update the tag of an existing completed task when a new tag is provided
-        if isinstance(existing, CompletedTask) and tag is not None and existing.tag != tag:
-            logger.info(f"Updating tag of completed task {existing.id}: {existing.tag} -> {tag}")
+        etype = "completed" if isinstance(existing, CompletedTask) else "pending"
+        # Preserve a supplied tag even when the existing task is still queued.
+        if tag is not None and existing.tag != tag:
+            logger.info(f"Updating tag of {etype} task {existing.id}: {existing.tag} -> {tag}")
             existing.tag = tag
             db.commit()
-        etype = "completed" if isinstance(existing, CompletedTask) else "pending"
         logger.info(f"Task already exists for {url}: id={existing.id}, type={etype}")
         return url, existing
 
